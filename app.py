@@ -17,6 +17,7 @@ import base64
 import csv
 import html
 import io
+import os
 import threading
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -24,7 +25,11 @@ from urllib.parse import parse_qs
 
 from contentguard import discover as disc
 
-HOST, PORT = "127.0.0.1", 8000
+# Local run -> 127.0.0.1:8000 (and auto-opens browser).
+# Hosted run (Render/Railway set the PORT env var) -> bind 0.0.0.0:$PORT.
+PORT = int(os.environ.get("PORT", "8000"))
+HOSTED = "PORT" in os.environ
+HOST = "0.0.0.0" if HOSTED else "127.0.0.1"
 
 CSS = """<style>
  *{box-sizing:border-box}
@@ -200,13 +205,14 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
-    url = f"http://{HOST}:{PORT}"
-    print(f"\n  WOW TV Piracy Finder is running  ->  {url}")
-    print("  (browser opens automatically; press Ctrl+C in this window to stop)\n")
-    try:
-        threading.Timer(1.0, lambda: webbrowser.open(url)).start()
-    except Exception:  # noqa: BLE001
-        pass
+    shown = f"http://127.0.0.1:{PORT}" if not HOSTED else f"http://{HOST}:{PORT}"
+    print(f"\n  WOW TV Piracy Finder is running  ->  {shown}")
+    print("  (press Ctrl+C in this window to stop)\n")
+    if not HOSTED:
+        try:
+            threading.Timer(1.0, lambda: webbrowser.open(shown)).start()
+        except Exception:  # noqa: BLE001
+            pass
     ThreadingHTTPServer((HOST, PORT), Handler).serve_forever()
 
 
