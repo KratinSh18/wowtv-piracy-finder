@@ -1,0 +1,17 @@
+# Core engine (audio + video fingerprinting, watermark, DB, CLI, selftest)
+numpy>=1.23
+scipy>=1.9
+Pillow>=9.0
+
+# Whole-web title discovery (`discover`) -- KEYLESS, no API setup needed.
+#   Lets `discover` search the entire web (DuckDuckGo) for re-uploads by name.
+ddgs>=9.0
+rapidfuzz>=3.0          # fast, Unicode-safe fuzzy title matching (typo-tolerant)
+deep-translator>=1.11   # translate titles into regional languages (Tamil/Telugu/...)
+#
+# Optional: fetch suspect clips from rival-platform share URLs for `scan <url>`
+#   pip install yt-dlp
+#
+# External (not pip): ffmpeg + ffprobe must be on PATH to ingest/scan real media.
+#   Windows:  winget install Gyan.FFmpeg   (or  choco install ffmpeg)
+#   The `selftest` command needs NONE of the above -- pure numpy/scipy/Pillow.

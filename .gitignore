@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Databases / logs
+*.db
+*.log
+gather_log.txt
+
+# Generated output (reports / sheets)
+leads*.html
+*_report.html
+master_report.html
+verified_report.html
+*.csv
+master_leads.json
+verified_leads.json
+suspect*.json
+
+# Internal WOW TV catalog data -- DO NOT publish (keep private)
+shows.csv
+priority_shows.csv
+priority_shows.json
+top_shows.txt
+*.xlsx
+
+# Binaries
+*.exe
+yt-dlp.exe
