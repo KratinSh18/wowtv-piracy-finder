@@ -72,8 +72,7 @@ def page(inner):
     return (f"<!doctype html><html lang=en><meta charset=utf-8>"
             f"<meta name=viewport content='width=device-width, initial-scale=1'>"
             f"<title>WOW TV - Piracy Finder</title>{CSS}"
-            f"<header><h1>WOW TV - Piracy Finder "
-            f"<span class=by>by Kratin Sharma</span></h1>"
+            f"<header><h1>WOW TV - Piracy Finder</h1>"
             f"<p>Enter show names, get the links where they have been re-uploaded, plus a CSV sheet.</p></header>"
             f"<main>{inner}</main><footer>by Kratin Sharma</footer></html>")
 

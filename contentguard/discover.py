@@ -65,7 +65,8 @@ NOT_A_VIDEO_URL = ("/@", "/channel/", "/c/", "/user/", "/profile/", "/playlist",
                    "/explore", "/about", "/featured", "/community", "/group")
 # Piracy venues to probe directly (exact title, site-scoped) for better recall.
 PIRACY_SITES = ["facebook.com", "instagram.com", "moj.sharechat.com",
-                "sharechat.com", "dailymotion.com", "ok.ru", "rumble.com"]
+                "sharechat.com", "microtv.sbs", "dailymotion.com", "ok.ru",
+                "rumble.com"]
 
 
 def _ytdlp():
@@ -217,15 +218,22 @@ def _search_platform(prefix: str, query: str, limit: int, host: str):
     return rows
 
 
+# Free, keyless search engines to aggregate. DuckDuckGo alone misses niche sites
+# (MicroTV, Moj); Bing + Brave index them, so we union all three for coverage.
+SEARCH_BACKENDS = "duckduckgo, bing, brave"
+
+
 def _ddg_search(query: str, limit: int, region: str = "in-en"):
-    """Keyless whole-web search via DuckDuckGo. Returns [] on any failure."""
+    """Keyless whole-web search across several engines. Returns [] on failure."""
     try:
         from ddgs import DDGS
     except Exception:  # noqa: BLE001
         return []
     n = max(1, min(limit, 25))
     hits = None
-    for kwargs in ({"region": region, "safesearch": "off", "max_results": n},
+    for kwargs in ({"region": region, "safesearch": "off", "max_results": n,
+                    "backend": SEARCH_BACKENDS},
+                   {"max_results": n, "backend": SEARCH_BACKENDS},
                    {"max_results": n}):
         try:
             hits = DDGS().text(query, **kwargs)
@@ -233,7 +241,7 @@ def _ddg_search(query: str, limit: int, region: str = "in-en"):
         except TypeError:
             continue
         except Exception:  # noqa: BLE001
-            return []
+            continue
     rows = []
     for it in (hits or []):
         url = it.get("href") or it.get("url") or it.get("link") or ""
@@ -298,8 +306,17 @@ def discover(name: str, limit: int = 20, threshold: float = 50.0,
             if cse_available():
                 tasks.append((lambda q: _tag(_cse_search(q, limit), q), (q,)))
     if web and sites:
+        # Exact name on EVERY heavy re-upload platform (reliable, low load), plus
+        # ONE rename variant on the worst offenders so renamed copies there are
+        # also caught. Kept small on purpose: too many site-searches at once make
+        # DuckDuckGo throttle and drop the very sites we are targeting.
+        rename = next((q for q in variants if q.lower() != name.lower()), None)
+        rename_also = {"facebook.com", "instagram.com", "moj.sharechat.com", "microtv.sbs"}
         for s in PIRACY_SITES:
             tasks.append((lambda s: _tag(_ddg_search(f'{name} site:{s}', limit), name), (s,)))
+            if rename and s in rename_also:
+                tasks.append((lambda s, rv: _tag(_ddg_search(f'{rv} site:{s}', limit), rv),
+                              (s, rename)))
 
     raw = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, workers)) as ex:
