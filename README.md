@@ -46,6 +46,22 @@ public place.
 
 ---
 
+## On Mac or Linux
+
+Exactly the same tool, just use `python3` / `pip3` and a few different commands:
+
+- Install:  `pip3 install -r requirements.txt`
+- Run:      `python3 app.py`  (browser opens at http://127.0.0.1:8000)
+- Open a saved report:  `open leads.html`  (on Linux: `xdg-open leads.html`)
+- Change the port:  `PORT=8001 python3 app.py`
+- Copy a file into the folder:  use `cp` instead of `copy`
+
+The `yt-dlp.exe` in the repo is Windows-only. On Mac/Linux you do NOT need it -
+`pip3 install -r requirements.txt` installs yt-dlp automatically. Just ignore the
+.exe file. Everything else (the website, the settings, the CSV) is identical.
+
+---
+
 ## How to operate it - the website (easiest)
 
 1. Open a terminal in the project folder:

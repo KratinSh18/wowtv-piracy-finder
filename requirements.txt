@@ -1,17 +1,14 @@
-# Core engine (audio + video fingerprinting, watermark, DB, CLI, selftest)
-numpy>=1.23
-scipy>=1.9
-Pillow>=9.0
+# WOW TV Piracy Finder - title search + website.
+# Install everything with:  pip install -r requirements.txt   (Windows)
+#                           pip3 install -r requirements.txt  (Mac / Linux)
 
-# Whole-web title discovery (`discover`) -- KEYLESS, no API setup needed.
-#   Lets `discover` search the entire web (DuckDuckGo) for re-uploads by name.
-ddgs>=9.0
+ddgs>=9.0               # keyless whole-web search (DuckDuckGo)
 rapidfuzz>=3.0          # fast, Unicode-safe fuzzy title matching (typo-tolerant)
-deep-translator>=1.11   # translate titles into regional languages (Tamil/Telugu/...)
-#
-# Optional: fetch suspect clips from rival-platform share URLs for `scan <url>`
-#   pip install yt-dlp
-#
-# External (not pip): ffmpeg + ffprobe must be on PATH to ingest/scan real media.
-#   Windows:  winget install Gyan.FFmpeg   (or  choco install ffmpeg)
-#   The `selftest` command needs NONE of the above -- pure numpy/scipy/Pillow.
+deep-translator>=1.11   # regional-language title translation (Tamil/Telugu/...)
+openpyxl>=3.1           # read the .xlsx tracker in extract_catalog.py
+yt-dlp                  # search YouTube for re-uploads (works on Mac/Windows/Linux)
+
+# Optional - only for the content-fingerprint feature (the `scan` / `selftest`
+# commands). NOT needed for the title finder or the website. Install if used:
+#   pip install numpy scipy Pillow
+#   (plus ffmpeg on PATH for real media)
