@@ -64,8 +64,8 @@ NOT_A_VIDEO_URL = ("/@", "/channel/", "/c/", "/user/", "/profile/", "/playlist",
                    "/tag/", "/tags/", "/hashtag/", "/results", "/search",
                    "/explore", "/about", "/featured", "/community", "/group")
 # Piracy venues to probe directly (exact title, site-scoped) for better recall.
-PIRACY_SITES = ["moj.sharechat.com", "sharechat.com", "dailymotion.com",
-                "ok.ru", "rumble.com"]
+PIRACY_SITES = ["facebook.com", "instagram.com", "moj.sharechat.com",
+                "sharechat.com", "dailymotion.com", "ok.ru", "rumble.com"]
 
 
 def _ytdlp():
@@ -323,10 +323,17 @@ def discover(name: str, limit: int = 20, threshold: float = 50.0,
         if video_only and not is_single_video(r.get("platform", ""), r.get("url", "")):
             continue
         title = r["title"]
+        # Match against title + search snippet + the URL words, not just the
+        # title. Many real re-uploads (especially on Facebook/Instagram) have a
+        # generic title but carry the show name in the description or the link -
+        # this is what catches them. (Owner-exclude already ran above.)
+        slug = (urlparse(r.get("url", "")).path
+                .replace("/", " ").replace("-", " ").replace("_", " "))
+        haystack = f'{title} {r.get("snippet", "")} {slug}'.strip()
         q = r.get("query") or name
-        s = titlematch.score(name, title)           # vs YOUR real title (TITLE only)
+        s = titlematch.score(name, haystack)        # title + description + link
         score_val = s["score"]
-        exact = _is_exact(name, title)
+        exact = _is_exact(name, title)              # EXACT stays title-only
         # A NATIVE-SCRIPT (translated) query that NEAR-exactly matches the found
         # title is a real dub re-upload -> promote it. Restricted to native-script
         # + near-exact so neither a romanized synonym guess nor a generic
