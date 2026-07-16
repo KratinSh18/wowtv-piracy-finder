@@ -151,7 +151,8 @@ def cmd_discover(args):
                             exclude=exclude, throttle=args.throttle,
                             video_only=not args.all_links,
                             translate=not args.no_translate, langs=langs,
-                            sites=not args.no_sites)
+                            sites=not args.no_sites,
+                            check_live=not args.no_live_check)
         outs.append(out)
         kind = "video links only" if out["video_only"] else "all links"
         tr = " +translations" if out["translated"] else ""
@@ -326,6 +327,8 @@ def build_parser():
                     help="include non-video (script/text) links too (default: VIDEO links only)")
     sp.add_argument("--no-sites", action="store_true",
                     help="skip the direct Moj/ShareChat/Dailymotion site-scoped probes")
+    sp.add_argument("--no-live-check", action="store_true",
+                    help="don't verify links are live / drop removed videos (faster)")
     sp.add_argument("--exclude", default="",
                     help="comma list of channel/platform/url substrings to hide (e.g. your own: \"wow tv,wowtv,kuku\")")
     sp.add_argument("--save", action="store_true", help="log leads to the case log")

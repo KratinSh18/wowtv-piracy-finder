@@ -45,6 +45,8 @@ VIDEO_HOSTS = {
     "joshapp.com", "chingari.io", "x.com", "twitter.com", "kuaishou.com",
     "microtv.sbs", "goodshort.com", "reelshort.com", "netshort.com",
     "flextv.cc", "dramabox.com", "moboreels.com", "youku.com", "iqiyi.com",
+    "roposo.com", "trell.co", "likee.com", "rutube.ru", "mxtakatak.com",
+    "rumble.cloud", "dai.ly", "streamable.com", "bitchute.com",
 }
 # Always-drop hosts: scripts / text / encyclopedias / books / non-video.
 DENY_HOSTS = {
@@ -89,27 +91,31 @@ def _base_host(h: str) -> str:
 
 
 def is_single_video(host: str, url: str) -> bool:
-    """True only for a link to ONE video on a KNOWN video platform. Drops:
-    random/unknown sites (gym reviews, blogs, listings), and channel / profile /
-    tag / playlist / search pages even on known hosts. This is the main
-    relevance gate -- it keeps the list to actual re-upload videos."""
+    """True for a link to ONE video. A single-video URL shape is accepted on ANY
+    site (so new/unknown re-upload sites are caught); known video hosts are always
+    accepted. Dropped: text/encyclopedia hosts, and channel / profile / tag /
+    playlist / search pages. Unknown-site hits are additionally held to a higher
+    match score in discover() so random pages do not slip through."""
     if not host:
         return False
     bh = _base_host(host)
     if host in DENY_HOSTS or bh in DENY_HOSTS:
         return False
-    # must be a recognised video/streaming/social-video platform
-    if host not in VIDEO_HOSTS and bh not in VIDEO_HOSTS:
-        return False
     u = (url or "").lower()
-    if any(p in u for p in NOT_A_VIDEO_URL):
+    if any(p in u for p in NOT_A_VIDEO_URL):        # channel / profile / tag / list
         return False
-    if any(p in u for p in SINGLE_VIDEO_URL):
+    if any(p in u for p in SINGLE_VIDEO_URL):       # a video URL on ANY site
+        return True
+    if host in VIDEO_HOSTS or bh in VIDEO_HOSTS:    # known video platform
         return True
     # rumble video pages are rumble.com/v<id>-slug.html ; channels are /c/
     if bh == "rumble.com":
         return u.rstrip("/").endswith(".html") and "/v" in u
     return False
+
+
+def _host_known(host: str) -> bool:
+    return host in VIDEO_HOSTS or _base_host(host) in VIDEO_HOSTS
 
 
 def _tag(rows, q):
@@ -218,9 +224,10 @@ def _search_platform(prefix: str, query: str, limit: int, host: str):
     return rows
 
 
-# Free, keyless search engines to aggregate. DuckDuckGo alone misses niche sites
-# (MicroTV, Moj); Bing + Brave index them, so we union all three for coverage.
-SEARCH_BACKENDS = "duckduckgo, bing, brave"
+# Free, keyless search. Query MANY engines and union the results - different
+# engines index different sites, so this maximises coverage of niche re-upload
+# venues (MicroTV, Moj, small aggregators). Slower, but accuracy is the priority.
+SEARCH_BACKENDS = "duckduckgo, bing, brave, yandex"
 
 
 def _ddg_search(query: str, limit: int, region: str = "in-en"):
@@ -276,11 +283,67 @@ def _cse_search(query: str, limit: int):
     return rows
 
 
+_UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+       "(KHTML, like Gecko) Chrome/124.0 Safari/537.36")
+# explicit "this was removed/deleted" text (used for non-YouTube pages)
+_DEAD_PHRASES = (
+    "isn't available anymore", "no longer available", "video has been removed",
+    "this video is private", "content isn't available right now",
+    "this content isn't available", "this page isn't available",
+    "sorry, this page isn", "video no longer exists", "removed for violating",
+    "this reel is no longer",
+)
+
+
+def _is_dead(url: str) -> bool:
+    """True only when a link is CONFIRMED removed/private/deleted. Network errors,
+    timeouts and login-walls return False (kept) so we never drop a good link we
+    just couldn't verify."""
+    if not url:
+        return False
+    import urllib.error
+    import urllib.parse
+    import urllib.request
+    host = _base_host(_host(url))
+
+    # YouTube / Dailymotion: oEmbed is a fast, reliable liveness probe.
+    oembed = None
+    if host in ("youtube.com", "youtu.be"):
+        oembed = "https://www.youtube.com/oembed?format=json&url=" + urllib.parse.quote(url, safe="")
+        dead_codes = (401, 404)
+    elif host == "dailymotion.com":
+        oembed = "https://www.dailymotion.com/services/oembed?url=" + urllib.parse.quote(url, safe="")
+        dead_codes = (400, 404)
+    if oembed:
+        try:
+            urllib.request.urlopen(urllib.request.Request(oembed, headers={"User-Agent": _UA}), timeout=6)
+            return False                      # 200 -> live
+        except urllib.error.HTTPError as e:
+            return e.code in dead_codes       # removed / private -> dead
+        except Exception:  # noqa: BLE001
+            return False                      # can't verify -> keep
+
+    # Everything else (Facebook, Instagram, ok.ru, Rumble, MicroTV, ShareChat...):
+    # fetch the page and drop it ONLY on a 404/410 or explicit removal text. A
+    # login wall / block has no removal text, so it is kept -- we never drop a
+    # link we could not confirm as removed.
+    try:
+        req = urllib.request.Request(url, headers={
+            "User-Agent": _UA, "Accept-Language": "en-US,en;q=0.9"})
+        with urllib.request.urlopen(req, timeout=10) as r:
+            body = r.read(200000).decode("utf-8", "replace").lower()
+    except urllib.error.HTTPError as e:
+        return e.code in (404, 410)
+    except Exception:  # noqa: BLE001
+        return False
+    return any(p in body for p in _DEAD_PHRASES)
+
+
 def discover(name: str, limit: int = 20, threshold: float = 50.0,
              platforms=("youtube",), use_web: bool = True, exclude=(),
              throttle: float = 1.0, video_only: bool = True,
              translate: bool = True, langs=None, sites: bool = True,
-             workers: int = 8):
+             workers: int = 8, check_live: bool = True):
     """Search the web + YouTube for `name` (+ synonym & translation variants);
     return scored, video-only leads with EXACT matches first.
 
@@ -358,7 +421,10 @@ def discover(name: str, limit: int = 20, threshold: float = 50.0,
         if q != name and _nonascii(q) and _is_exact(q, title):
             exact = True
             score_val = max(score_val, 100.0)
-        if score_val < threshold:
+        # known video platforms use your threshold; unknown sites must be a
+        # near-exact match (>=82) so a random page cannot slip through.
+        min_score = threshold if _host_known(r.get("platform", "")) else max(threshold, 82.0)
+        if score_val < min_score:
             continue
         key = r["url"] or (title + "|" + r.get("channel", ""))
         rec = {**r, "score": score_val, "shared": s["shared_concepts"], "exact": exact}
@@ -366,6 +432,13 @@ def discover(name: str, limit: int = 20, threshold: float = 50.0,
             best[key] = rec
     # EXACT matches first, then by score
     results = sorted(best.values(), key=lambda x: (not x["exact"], -x["score"]))
+
+    # drop links that are CONFIRMED removed/deleted/private (checked in parallel)
+    if check_live and results:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(16, len(results))) as ex:
+            dead = list(ex.map(lambda r: _is_dead(r.get("url", "")), results))
+        results = [r for r, d in zip(results, dead) if not d]
+
     return {"name": name, "variants": variants, "results": results,
             "web_used": use_web and web_available(),
             "web_backends": _backends_label(use_web),

@@ -78,7 +78,7 @@ def page(inner):
 
 
 def form_html(shows="", threshold="60", limit="15", exclude="wowtv,kuku",
-              translate=False, video=True, msg=""):
+              translate=True, video=True, msg=""):
     tc = "checked" if translate else ""
     vc = "checked" if video else ""
     note = f"<p class=mut>{esc(msg)}</p>" if msg else ""
