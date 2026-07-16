@@ -85,7 +85,9 @@ def form_html(shows="", threshold="60", limit="15", exclude="wowtv,kuku",
     return page(f"""{note}
 <form method=post onsubmit="document.getElementById('load').style.display='flex'">
  <label>Shows (one show name per line)</label>
- <textarea name=shows rows=8 placeholder="Gymwala Billionaire&#10;Bhikhari Boss&#10;Banarasiya Mafia">{esc(shows)}</textarea>
+ <textarea name=shows rows=7 placeholder="Gymwala Billionaire&#10;Bhikhari Boss&#10;Banarasiya Mafia">{esc(shows)}</textarea>
+ <label style="margin-top:14px">Or paste suspect links to identify (Facebook / any site), one per line</label>
+ <textarea name=links rows=4 placeholder="https://www.facebook.com/share/v/..."></textarea>
  <div class=row>
   <div><label>Threshold</label><input name=threshold value="{esc(threshold)}"></div>
   <div><label>Limit</label><input name=limit value="{esc(limit)}"></div>
@@ -142,6 +144,31 @@ def results_html(groups, rows):
 """)
 
 
+def check_html(res, has_catalog):
+    rows = []
+    for r in res:
+        if r.get("matched_show"):
+            show = (f'<span class=ex style="background:#b91c1c;display:inline-block">'
+                    f'{esc(r["matched_show"])} ({r["score"]:.0f})</span>')
+        else:
+            show = '<span class=mut>not identified</span>'
+        up = esc(r["uploader"]) if r.get("uploader") else "-"
+        rows.append(f'<tr><td>{esc(r["caption"][:130])}</td><td>{up}</td>'
+                    f'<td>{show}</td>'
+                    f'<td class=u><a href="{esc(r["url"])}" target=_blank rel=noopener>open</a></td></tr>')
+    body = "".join(rows) or "<tr><td colspan=4>No live links.</td></tr>"
+    note = "" if has_catalog else " &middot; no shows.csv found, so captions only"
+    return page(f"""
+<div class=bar>
+  <div>{len(res)} live link(s){note}</div>
+  <div><a class=btn2 href="/">New search</a></div>
+</div>
+<p class=mut>These are the captions read from each link. "Not identified" means the caption
+did not name a show (common for clickbait reels) - it does not mean it is safe.</p>
+<table><tr><th>Caption</th><th>Uploader</th><th>Show match</th><th>Link</th></tr>{body}</table>
+""")
+
+
 def run_scans(shows, threshold, limit, exclude, translate, video):
     excl = [e.strip() for e in exclude.split(",") if e.strip()]
     groups, rows = [], []
@@ -195,9 +222,18 @@ class Handler(BaseHTTPRequestHandler):
             limit = int(data.get("limit", ["20"])[0] or 20)
         except ValueError:
             limit = 20
+        # "identify these links" mode takes priority if links were pasted
+        links = [s.strip() for s in data.get("links", [""])[0].splitlines()
+                 if s.strip().startswith("http")]
+        if links:
+            from contentguard import checklinks, titlematch
+            catalog = titlematch.load_titles("shows.csv") if os.path.isfile("shows.csv") else []
+            res = checklinks.check_urls(links, catalog, threshold=threshold, drop_dead=True)
+            self._send(check_html(res, bool(catalog)))
+            return
         if not shows:
             self._send(form_html(exclude=exclude, translate=translate, video=video,
-                                 msg="Please enter at least one show name."))
+                                 msg="Enter show names to search, or paste links to identify."))
             return
         groups, rows = run_scans(shows, threshold, limit, exclude, translate, video)
         self._send(results_html(groups, rows))

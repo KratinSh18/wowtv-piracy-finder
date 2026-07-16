@@ -67,7 +67,11 @@ SYNONYMS = [
 # matching when a pirate splits "Gymwala" into "Gym Wala".
 _STOP = {"the", "a", "an", "of", "and", "&", "to", "my", "his", "her", "their",
          "is", "in", "on", "with", "for", "me", "you", "ka", "ki", "ke", "ko",
-         "se", "hai", "ho", "na"}
+         "se", "hai", "ho", "na",
+         # common Hindi filler/function words (so a caption like "gadi lene ke
+         # liye" does not falsely match a show titled "... Ke Liye")
+         "liye", "gaya", "gai", "hua", "hui", "kya", "diya", "liya", "kiya",
+         "ne", "per", "par", "dusri", "dusra", "dusre", "so", "plz"}
 _NOISE = {"ep", "episode", "epi", "part", "pt", "season", "vol", "volume",
           "full", "hd", "4k", "official", "trailer", "promo", "teaser", "clip",
           "shorts", "short", "reel", "video", "movie", "series", "webseries",
