@@ -104,29 +104,6 @@ python -m contentguard discover shows.csv --limit 20 --threshold 60 --exclude "w
 
 ---
 
-## Identifying links you already have (e.g. Facebook share links)
-
-Search engines cannot FIND Facebook `/share/` links - the URL is an opaque id and
-that format is not indexed, so search will never surface them. But if you already
-HAVE such links (found manually, or forwarded on WhatsApp), the tool can open each
-one, read its caption, confirm it is still live, and match it to a show.
-
-- **Website:** paste the links into the "Or paste suspect links to identify" box
-  and click Scan.
-- **Command line:**
-  ```
-  python -m contentguard check links.txt --csv found.csv
-  ```
-  (or pass the links directly instead of a file).
-
-Important: many pirate reels use generic clickbait captions ("Pati ne choda",
-"Kya hua", "Paise") that do NOT contain the show title, so they show as "not
-identified". That is honest - such a caption cannot be mapped to a specific show
-from text alone. What still helps: the tool shows the caption and the uploader,
-and if one account is posting many of your shows, report that whole account. For
-a definitive show ID you would need content fingerprinting (matching the actual
-audio/video), which is out of scope for this title-based tool.
-
 ## Sharing the sheet with other people
 
 The sheet is not on GitHub, so you share it separately (Slack / Drive / email).

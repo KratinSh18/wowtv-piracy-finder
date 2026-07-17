@@ -206,47 +206,6 @@ def cmd_discover(args):
     return 0
 
 
-def cmd_check(args):
-    import csv as _csv
-    from . import checklinks, media, titlematch
-
-    urls = []
-    for src in args.source:
-        if media.is_url(src):
-            urls.append(src)
-        elif os.path.isfile(src):
-            with open(src, encoding="utf-8-sig") as f:
-                urls += [ln.strip() for ln in f if media.is_url(ln.strip())]
-    if not urls:
-        print("No links found. Pass links directly, or a .txt file with one link per line.")
-        return 1
-
-    catalog = []
-    if args.mine:
-        catalog = titlematch.load_titles(args.mine)
-    elif os.path.isfile("shows.csv"):
-        catalog = titlematch.load_titles("shows.csv")
-
-    res = checklinks.check_urls(urls, catalog, threshold=args.threshold,
-                                drop_dead=not args.keep_dead)
-    note = "" if catalog else "  (no shows.csv catalog found -> showing captions only)"
-    print(f"Checked {len(urls)} link(s); {len(res)} live{note}:\n")
-    for r in res:
-        show = f"   ==> {r['matched_show']} ({r['score']:.0f})" if r["matched_show"] else ""
-        up = f"   [by {r['uploader']}]" if r["uploader"] else ""
-        print(f"  \"{r['caption'][:80]}\"{up}{show}")
-        print(f"       {r['url']}")
-    if args.csv:
-        with open(args.csv, "w", newline="", encoding="utf-8-sig") as f:
-            w = _csv.writer(f)
-            w.writerow(["url", "caption", "uploader", "matched_show", "score", "live"])
-            for r in res:
-                w.writerow([r["url"], r["caption"], r["uploader"], r["matched_show"],
-                            r["score"], r["live"]])
-        print(f"\nSaved to {args.csv}")
-    return 0
-
-
 def cmd_titlescan(args):
     from . import media, titlematch
     db = _db(args)
@@ -374,18 +333,6 @@ def build_parser():
                     help="comma list of channel/platform/url substrings to hide (e.g. your own: \"wow tv,wowtv,kuku\")")
     sp.add_argument("--save", action="store_true", help="log leads to the case log")
     sp.set_defaults(func=cmd_discover)
-
-    sp = sub.add_parser("check",
-                        help="identify suspect links you already have (e.g. Facebook /share/ links)")
-    sp.add_argument("source", nargs="+",
-                    help="links directly, or a .txt file with one link per line")
-    sp.add_argument("--mine", help="your catalog (.csv/.txt); defaults to shows.csv if present")
-    sp.add_argument("--threshold", type=float, default=60.0,
-                    help="min score to claim a show match (default 60)")
-    sp.add_argument("--keep-dead", action="store_true",
-                    help="keep links even if the video was removed")
-    sp.add_argument("--csv", help="write results to this CSV file")
-    sp.set_defaults(func=cmd_check)
 
     sp = sub.add_parser("titlescan",
                         help="flag rival titles that are synonym/fuzzy renames of your shows")
